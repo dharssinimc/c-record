@@ -1,146 +1,98 @@
 #include <iostream>
-#include <stack>
-#include <queue>
-#include <chrono>
+#include <memory>
 using namespace std;
-using namespace chrono;
 
-template <class T>
-class MyStack
+// Resource class
+class Resource
 {
-private:
-    T data[10000];
-    int top;
-
 public:
-    MyStack()
+    Resource()
     {
-        top = -1;
+        cout << "Resource acquired" << endl;
     }
 
-    void push(T value)
+    ~Resource()
     {
-        if (top < 9999)
-            data[++top] = value;
+        cout << "Resource released" << endl;
     }
 
-    void pop()
+    void use()
     {
-        if (top >= 0)
-            top--;
+        cout << "Resource is being used" << endl;
     }
 };
 
-template <class T>
-class MyQueue
+// Manual Smart Pointer using RAII
+class MySmartPointer
 {
 private:
-    T data[10000];
-    int front, rear;
+    Resource* ptr;
 
 public:
-    MyQueue()
+    MySmartPointer(Resource* p)
     {
-        front = 0;
-        rear = -1;
+        ptr = p;
     }
 
-    void enqueue(T value)
+    ~MySmartPointer()
     {
-        if (rear < 9999)
-            data[++rear] = value;
+        delete ptr;
+        cout << "Manual smart pointer destroyed" << endl;
     }
 
-    void dequeue()
+    Resource* operator->()
     {
-        if (front <= rear)
-            front++;
+        return ptr;
     }
+
+    // Disable copying to avoid double deletion
+    MySmartPointer(const MySmartPointer&) = delete;
+
+    MySmartPointer& operator=(const MySmartPointer&) = delete;
 };
 
 int main()
 {
-    const int N = 5;
+    cout << "---- Manual RAII Smart Pointer ----" << endl;
 
-    // Custom Stack Benchmark
-    auto start = high_resolution_clock::now();
+    {
+        MySmartPointer smartPtr(new Resource());
+        smartPtr->use();
+    }
 
-    MyStack<int> myStack;
+    cout << "\n---- unique_ptr ----" << endl;
 
-    for (int i = 0; i < N; i++)
-        myStack.push(i);
+    {
+        unique_ptr<Resource> uniquePtr =
+            make_unique<Resource>();
 
-    for (int i = 0; i < N; i++)
-        myStack.pop();
+        uniquePtr->use();
+    }
 
-    auto end = high_resolution_clock::now();
+    cout << "\n---- shared_ptr ----" << endl;
 
-    auto customStackTime =
-        duration_cast<microseconds>(end - start);
+    {
+        shared_ptr<Resource> sharedPtr1 =
+            make_shared<Resource>();
 
-    // STL Stack Benchmark
-    start = high_resolution_clock::now();
+        shared_ptr<Resource> sharedPtr2 = sharedPtr1;
 
-    stack<int> stlStack;
+        // Small modification: create one more shared pointer
+        shared_ptr<Resource> sharedPtr3 = sharedPtr1;
 
-    for (int i = 0; i < N; i++)
-        stlStack.push(i);
+        sharedPtr1->use();
 
-    for (int i = 0; i < N; i++)
-        stlStack.pop();
+        cout << "Shared Pointer Count: "
+             << sharedPtr1.use_count() << endl;
 
-    end = high_resolution_clock::now();
+        // Remove one shared pointer
+        sharedPtr3.reset();
 
-    auto stlStackTime =
-        duration_cast<microseconds>(end - start);
+        cout << "Count after reset: "
+             << sharedPtr1.use_count() << endl;
+    }
 
-    // Custom Queue Benchmark
-    start = high_resolution_clock::now();
-
-    MyQueue<int> myQueue;
-
-    for (int i = 0; i < N; i++)
-        myQueue.enqueue(i);
-
-    for (int i = 0; i < N; i++)
-        myQueue.dequeue();
-
-    end = high_resolution_clock::now();
-
-    auto customQueueTime =
-        duration_cast<microseconds>(end - start);
-
-    // STL Queue Benchmark
-    start = high_resolution_clock::now();
-
-    queue<int> stlQueue;
-
-    for (int i = 0; i < N; i++)
-        stlQueue.push(i);
-
-    for (int i = 0; i < N; i++)
-        stlQueue.pop();
-
-    end = high_resolution_clock::now();
-
-    auto stlQueueTime =
-        duration_cast<microseconds>(end - start);
-
-    cout << "Custom Stack Time: "
-         << customStackTime.count()
-         << " microseconds" << endl;
-
-    cout << "STL Stack Time: "
-         << stlStackTime.count()
-         << " microseconds" << endl;
-
-    cout << "Custom Queue Time: "
-         << customQueueTime.count()
-         << " microseconds" << endl;
-
-    cout << "STL Queue Time: "
-         << stlQueueTime.count()
-         << " microseconds" << endl;
+    cout << "\nProgram completed successfully." << endl;
 
     return 0;
 }
